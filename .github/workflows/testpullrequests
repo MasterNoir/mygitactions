@@ -1,0 +1,50 @@
+name: PR - Unit Tests
+
+on:
+  pull_request:
+    branches: [ "*" ]
+
+permissions:
+  checks: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore
+
+      # TRX-Output erzeugen, damit man es sauber reporten kann
+      - name: Test (with TRX)
+        run: |
+          dotnet test \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=test_results.trx" \
+            --results-directory "./TestResults"
+
+      # Macht die Testergebnisse in GitHub sichtbar (Checks/Annotations)
+      # + hübsche Zusammenfassung im Run
+      - name: Publish test report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit Tests
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: true
